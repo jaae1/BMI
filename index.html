@@ -1,146 +1,636 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
 <head>
-  <base target="_top">
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>คำนวณค่า BMI</title>
-  <style>
-    body {
-      font-family: 'Sarabun', sans-serif, Arial;
-      background-color: #f4f7f6;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      margin: 0;
-    }
-    .card {
-      background: white;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 400px;
-    }
-    h2 {
-      text-align: center;
-      color: #333;
-      margin-bottom: 20px;
-    }
-    .form-group {
-      margin-bottom: 15px;
-    }
-    label {
-      display: block;
-      margin-bottom: 5px;
-      color: #666;
-    }
-    input {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      box-sizing: border-box;
-      font-size: 16px;
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 16px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    button:hover {
-      background-color: #45a049;
-    }
-    #result-box {
-      margin-top: 20px;
-      padding: 15px;
-      border-radius: 6px;
-      background-color: #e8f5e9;
-      display: none;
-      text-align: center;
-    }
-    #result-box h3 {
-      margin: 0 0 10px 0;
-      color: #2e7d32;
-    }
-    .loading {
-      text-align: center;
-      display: none;
-      margin-top: 15px;
-      color: #666;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบคำนวณค่า BMI และบันทึกข้อมูลลง Google Sheet</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Prompt & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'sans-serif'],
+                    },
+                    colors: {
+                        bmi: {
+                            underweight: '#3b82f6',
+                            normal: '#10b981',
+                            overweight: '#f59e0b',
+                            obese1: '#f97316',
+                            obese2: '#ef4444'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+        .tab-btn.active {
+            background-color: #059669;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+        }
+        /* Custom gauge animations */
+        .gauge-pointer {
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform-origin: bottom center;
+        }
+    </style>
 </head>
-<body>
+<body class="text-slate-800 pb-12">
 
-  <div class="card">
-    <h2>คำนวณค่า BMI</h2>
-    <form id="bmiForm">
-      <div class="form-group">
-        <label for="name">ชื่อผู้ใช้งาน:</label>
-        <input type="text" id="name" required placeholder="ใส่ชื่อของคุณ">
-      </div>
-      <div class="form-group">
-        <label for="weight">น้ำหนัก (กิโลกรัม):</label>
-        <input type="number" step="0.1" id="weight" required placeholder="เช่น 65.5">
-      </div>
-      <div class="form-group">
-        <label for="height">ส่วนสูง (เซนติเมตร):</label>
-        <input type="number" step="0.1" id="height" required placeholder="เช่น 170">
-      </div>
-      <button type="button" onclick="submitForm()">คำนวณและบันทึกข้อมูล</button>
-    </form>
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-md w-full px-4 pointer-events-none"></div>
 
-    <div class="loading" id="loading">กำลังบันทึกและคำนวณข้อมูล...</div>
+    <!-- Navigation Header -->
+    <header class="max-w-6xl mx-auto px-4 pt-6 pb-4">
+        <div class="glass-card rounded-2xl p-4 md:p-6 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-2xl shadow-lg shadow-emerald-600/30">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold text-slate-800">BMI Health Tracker</h1>
+                    <p class="text-xs md:text-sm text-slate-500">ระบบคำนวณและประเมินสุขภาพด้วยค่า BMI</p>
+                </div>
+            </div>
 
-    <div id="result-box">
-      <h3>ผลการคำนวณ</h3>
-      <p><strong>ค่า BMI:</strong> <span id="bmiVal"></span></p>
-      <p><strong>ผลการประเมิน:</strong> <span id="bmiRes"></span></p>
-    </div>
-  </div>
+            <!-- Tab Buttons -->
+            <div class="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200/80 w-full md:w-auto text-sm font-medium">
+                <button onclick="switchTab('calc')" id="tab-calc-btn" class="tab-btn active flex-1 md:flex-none px-4 py-2 rounded-lg transition-all duration-200 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-calculator"></i> คำนวณ BMI
+                </button>
+                <button onclick="switchTab('history')" id="tab-history-btn" class="tab-btn flex-1 md:flex-none px-4 py-2 text-slate-600 hover:text-slate-900 rounded-lg transition-all duration-200 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-clock-history"></i> ประวัติ (<span id="history-count">0</span>)
+                </button>
+            </div>
+        </div>
+    </header>
 
-  <script>
-    function submitForm() {
-      var name = document.getElementById('name').value;
-      var weight = document.getElementById('weight').value;
-      var height = document.getElementById('height').value;
+    <!-- Main Content Container -->
+    <main class="max-w-6xl mx-auto px-4 mt-2">
 
-      if (!name || !weight || !height) {
-        alert('กรุณากรอกข้อมูลให้ครบถ้วน');
-        return;
-      }
+        <!-- TAB 1: CALCULATOR -->
+        <div id="tab-calc" class="tab-content grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Side: Input Form -->
+            <div class="lg:col-span-5 glass-card rounded-3xl p-6 shadow-xl shadow-slate-200/50 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-user-pen text-emerald-600"></i> กรอกข้อมูลผู้ใช้งาน
+                        </h2>
+                    </div>
 
-      var formData = {
-        name: name,
-        weight: parseFloat(weight),
-        height: parseFloat(height)
-      };
+                    <form id="bmi-form" onsubmit="calculateBMI(event)" class="space-y-4">
+                        <!-- Name Field -->
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">ชื่อ - นามสกุล / รหัสสมาชิก</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                    <i class="fa-regular fa-user"></i>
+                                </span>
+                                <input type="text" id="input-name" required placeholder="สมชาย ใจดี" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-slate-800 text-sm">
+                            </div>
+                        </div>
 
-      document.getElementById('loading').style.display = 'block';
-      document.getElementById('result-box').style.display = 'none';
+                        <!-- Gender & Age Row -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">เพศ</label>
+                                <select id="input-gender" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 text-sm bg-white">
+                                    <option value="ชาย">ชาย</option>
+                                    <option value="หญิง">หญิง</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">อายุ (ปี)</label>
+                                <input type="number" id="input-age" min="1" max="120" value="25" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 text-sm">
+                            </div>
+                        </div>
 
-      // เรียกใช้ฟังก์ชัน saveData บน Apps Script (Google Server)
-      google.script.run.withSuccessHandler(onSuccess).saveData(formData);
-    }
+                        <!-- Height & Weight Row -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">ส่วนสูง (ซม.)</label>
+                                <div class="relative">
+                                    <input type="number" id="input-height" min="50" max="250" step="0.1" placeholder="170" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 text-sm">
+                                    <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">cm</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">น้ำหนัก (กก.)</label>
+                                <div class="relative">
+                                    <input type="number" id="input-weight" min="10" max="300" step="0.1" placeholder="65" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 text-sm">
+                                    <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">kg</span>
+                                </div>
+                            </div>
+                        </div>
 
-    function onSuccess(response) {
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('bmiVal').innerText = response.bmi;
-      document.getElementById('bmiRes').innerText = response.result;
-      document.getElementById('result-box').style.display = 'block';
-      
-      // ล้างข้อมูลในฟอร์ม
-      document.getElementById('bmiForm').reset();
-    }
-  </script>
+                        <!-- Standard Type Toggle -->
+                        <div class="pt-2">
+                            <label class="block text-xs font-semibold text-slate-500 mb-2">เกณฑ์การประเมิน</label>
+                            <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl text-xs">
+                                <label class="flex items-center justify-center p-2 rounded-lg cursor-pointer transition-all has-[:checked]:bg-white has-[:checked]:shadow-sm has-[:checked]:text-emerald-700 font-medium">
+                                    <input type="radio" name="standard" value="asian" checked class="sr-only" onchange="recalculateIfPossible()">
+                                    <span>เกณฑ์เอเชีย (แนะนำ)</span>
+                                </label>
+                                <label class="flex items-center justify-center p-2 rounded-lg cursor-pointer transition-all has-[:checked]:bg-white has-[:checked]:shadow-sm has-[:checked]:text-emerald-700 font-medium">
+                                    <input type="radio" name="standard" value="who" class="sr-only" onchange="recalculateIfPossible()">
+                                    <span>เกณฑ์สากล (WHO)</span>
+                                </label>
+                            </div>
+                        </div>
 
+                        <!-- Action Buttons -->
+                        <div class="pt-3 flex gap-3">
+                            <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 active:scale-95">
+                                <i class="fa-solid fa-chart-pie"></i> คำนวณค่า BMI
+                            </button>
+                            <button type="button" onclick="resetForm()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium py-3 px-4 rounded-xl transition-all">
+                                <i class="fa-solid fa-rotate-left"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-slate-100 text-xs text-slate-400 flex justify-between items-center">
+                    <span><i class="fa-solid fa-shield-halved"></i> ข้อมูลประวัติจะถูกบันทึกปลอดภัยในเครื่องของคุณ</span>
+                </div>
+            </div>
+
+            <!-- Right Side: Calculation Results Display -->
+            <div class="lg:col-span-7 glass-card rounded-3xl p-6 shadow-xl shadow-slate-200/50 flex flex-col justify-between">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-square-poll-vertical text-emerald-600"></i> ผลการประเมินสุขภาพ
+                    </h2>
+
+                    <!-- Empty State -->
+                    <div id="calc-empty-state" class="py-16 text-center text-slate-400 flex flex-col items-center">
+                        <div class="w-20 h-20 bg-emerald-50 text-emerald-400 rounded-full flex items-center justify-center text-3xl mb-4 animate-bounce">
+                            <i class="fa-solid fa-weight-scale"></i>
+                        </div>
+                        <p class="font-medium text-slate-600">กรอกข้อมูลน้ำหนัก ส่วนสูง และกด "คำนวณค่า BMI"</p>
+                        <p class="text-xs text-slate-400 mt-1">ระบบจะแสดงผลการวิเคราะห์ระดับ BMI และข้อแนะนำเพื่อสุขภาพ</p>
+                    </div>
+
+                    <!-- Result Card (Hidden by default) -->
+                    <div id="calc-result-box" class="hidden space-y-6">
+                        
+                        <!-- Main Score Display -->
+                        <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
+                            <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl"></div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                                <div class="text-center md:text-left">
+                                    <span class="text-xs uppercase tracking-wider text-slate-400 font-semibold">ดัชนีมวลกาย (BMI)</span>
+                                    <div class="flex items-baseline justify-center md:justify-start gap-2 mt-1">
+                                        <span id="res-bmi-val" class="text-5xl font-extrabold tracking-tight text-emerald-400">22.5</span>
+                                        <span class="text-sm text-slate-400">kg/m²</span>
+                                    </div>
+                                    <div class="mt-3">
+                                        <span id="res-category-badge" class="px-3 py-1 rounded-full text-sm font-bold bg-emerald-500 text-white inline-block">
+                                            สมส่วน / น้ำหนักปกติ
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="text-xs text-slate-300 space-y-2 border-t md:border-t-0 md:border-l border-slate-700/80 pt-3 md:pt-0 md:pl-6">
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-400">ชื่อผู้ตรวจ:</span>
+                                        <span id="res-name-val" class="font-semibold text-white">-</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-400">เกณฑ์น้ำหนักเหมาะสม:</span>
+                                        <span id="res-ideal-weight" class="font-semibold text-emerald-300">-</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-400">น้ำดื่มที่แนะนำต่อวัน:</span>
+                                        <span id="res-water-intake" class="font-semibold text-sky-300">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Visual Gauge Bar -->
+                        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                            <div class="flex justify-between text-xs text-slate-500 font-medium mb-2">
+                                <span>ผอม</span>
+                                <span>ปกติ</span>
+                                <span>ท้วม</span>
+                                <span>อ้วน</span>
+                                <span>อ้วนมาก</span>
+                            </div>
+                            
+                            <!-- Multi-color Bar -->
+                            <div class="h-4 w-full rounded-full flex overflow-hidden p-0.5 bg-slate-200 relative">
+                                <div class="h-full bg-blue-400 w-[20%]" title="ผอม (< 18.5)"></div>
+                                <div class="h-full bg-emerald-500 w-[25%]" title="ปกติ (18.5 - 22.9)"></div>
+                                <div class="h-full bg-amber-400 w-[15%]" title="ท้วม (23 - 24.9)"></div>
+                                <div class="h-full bg-orange-500 w-[20%]" title="อ้วน 1 (25 - 29.9)"></div>
+                                <div class="h-full bg-red-500 w-[20%]" title="อ้วนมาก (>= 30)"></div>
+
+                                <!-- Marker Indicator Pin -->
+                                <div id="bmi-marker-pin" class="absolute top-0 bottom-0 w-1.5 bg-slate-900 border border-white rounded-full shadow-md transition-all duration-700" style="left: 40%;"></div>
+                            </div>
+
+                            <div id="res-advice-text" class="mt-4 p-3 rounded-xl bg-white text-xs md:text-sm text-slate-700 border border-slate-100 flex items-start gap-2.5">
+                                <i class="fa-solid fa-circle-info text-emerald-600 text-lg mt-0.5 shrink-0"></i>
+                                <span>กำลังประเมินคำแนะนำ...</span>
+                            </div>
+                        </div>
+
+                        <!-- Energy Metabolism Stats -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60">
+                                <span class="text-xs text-slate-400 block font-medium">BMR (พลังงานขั้นต่ำ)</span>
+                                <span id="res-bmr-val" class="text-base font-bold text-slate-800">1,450 kcal</span>
+                            </div>
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60">
+                                <span class="text-xs text-slate-400 block font-medium">TDEE (เผาผลาญต่อวัน)</span>
+                                <span id="res-tdee-val" class="text-base font-bold text-slate-800">1,950 kcal</span>
+                            </div>
+                        </div>
+
+                        <!-- View History Action Button -->
+                        <div class="pt-2">
+                            <button onclick="switchTab('history')" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3.5 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-clock-history text-emerald-400"></i> ดูประวัติการคำนวณย้อนหลัง
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: HISTORY LOG -->
+        <div id="tab-history" class="tab-content hidden space-y-6">
+            <div class="glass-card rounded-3xl p-6 shadow-xl shadow-slate-200/50">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-list-check text-emerald-600"></i> ประวัติการคำนวณ BMI
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">รายการทั้งหมดที่ถูกคำนวณและบันทึกในเครื่องของคุณ</p>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button onclick="exportHistoryCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-csv"></i> ส่งออก CSV
+                        </button>
+                        <button onclick="clearHistory()" class="bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold text-xs px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5">
+                            <i class="fa-solid fa-trash-can"></i> ล้างประวัติ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- History Table Wrapper -->
+                <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                    <table class="w-full text-xs text-left text-slate-600">
+                        <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                            <tr>
+                                <th class="px-4 py-3">#</th>
+                                <th class="px-4 py-3">วันที่/เวลา</th>
+                                <th class="px-4 py-3">ชื่อ - นามสกุล</th>
+                                <th class="px-4 py-3">ส่วนสูง / น้ำหนัก</th>
+                                <th class="px-4 py-3">ค่า BMI</th>
+                                <th class="px-4 py-3">ผลการประเมิน</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="divide-y divide-slate-100">
+                            <!-- Rows inserted dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="history-empty" class="text-center py-12 text-slate-400">
+                    <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-300"></i>
+                    <p class="text-sm font-medium">ยังไม่มีรายการประวัติการคำนวณ</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // Global App State
+        let currentBmiResult = null;
+        let historyData = [];
+
+        // Initialize App on DOM Load
+        window.addEventListener('DOMContentLoaded', () => {
+            // Load saved history from localStorage if any
+            const savedHistory = localStorage.getItem('bmi_history_logs');
+            if (savedHistory) {
+                try {
+                    historyData = JSON.parse(savedHistory);
+                    renderHistoryTable();
+                } catch(e) {
+                    historyData = [];
+                }
+            }
+        });
+
+        // Tab Switching Logic
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                btn.classList.add('text-slate-600');
+            });
+
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-${tabName}-btn`);
+            activeBtn.classList.add('active');
+            activeBtn.classList.remove('text-slate-600');
+        }
+
+        // Calculate BMI Core Logic
+        function calculateBMI(e) {
+            if (e) e.preventDefault();
+
+            const name = document.getElementById('input-name').value.trim();
+            const gender = document.getElementById('input-gender').value;
+            const age = parseInt(document.getElementById('input-age').value) || 0;
+            const heightCm = parseFloat(document.getElementById('input-height').value);
+            const weightKg = parseFloat(document.getElementById('input-weight').value);
+            const standard = document.querySelector('input[name="standard"]:checked').value;
+
+            if (!heightCm || !weightKg || heightCm <= 0 || weightKg <= 0) {
+                showToast('กรุณากรอกส่วนสูงและน้ำหนักให้ถูกต้อง', 'error');
+                return;
+            }
+
+            const heightM = heightCm / 100;
+            const bmi = parseFloat((weightKg / (heightM * heightM)).toFixed(1));
+
+            // Classify BMI Status based on Asian or WHO standard
+            const classification = classifyBMI(bmi, standard);
+            
+            // Calculate Ideal Weight Range (BMI 18.5 - 22.9)
+            const minIdealWeight = (18.5 * heightM * heightM).toFixed(1);
+            const maxIdealWeight = (22.9 * heightM * heightM).toFixed(1);
+
+            // Water intake recommendation (weight * 33 ml)
+            const waterLiters = ((weightKg * 33) / 1000).toFixed(1);
+
+            // Estimate BMR (Mifflin-St Jeor Equation)
+            let bmr = 0;
+            if (gender === 'ชาย') {
+                bmr = Math.round((10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5);
+            } else {
+                bmr = Math.round((10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161);
+            }
+            const tdee = Math.round(bmr * 1.375); // Light exercise default multiplier
+
+            currentBmiResult = {
+                id: Date.now(),
+                timestamp: new Date().toLocaleString('th-TH'),
+                name,
+                gender,
+                age,
+                height: heightCm,
+                weight: weightKg,
+                bmi,
+                category: classification.label,
+                color: classification.color,
+                badgeBg: classification.badgeBg,
+                advice: classification.advice,
+                idealWeight: `${minIdealWeight} - ${maxIdealWeight} กก.`,
+                waterLiters: `${waterLiters} ลิตร`,
+                bmr: `${bmr.toLocaleString()} kcal`,
+                tdee: `${tdee.toLocaleString()} kcal`
+            };
+
+            displayResult(currentBmiResult);
+            showToast('คำนวณค่า BMI เรียบร้อยแล้ว', 'success');
+        }
+
+        // Recalculate if standard option toggled
+        function recalculateIfPossible() {
+            if (currentBmiResult) {
+                calculateBMI();
+            }
+        }
+
+        // Classify Category Function
+        function classifyBMI(bmi, standard) {
+            if (standard === 'asian') {
+                if (bmi < 18.5) {
+                    return {
+                        label: 'ผอม / น้ำหนักน้อยกว่าเกณฑ์',
+                        color: '#3b82f6',
+                        badgeBg: 'bg-blue-500',
+                        advice: 'ควรรับประทานอาหารให้ครบ 5 หมู่ และเพิ่มปริมาณโปรตีนและพลังงานเพื่อเพิ่มน้ำหนักให้อยู่ในเกณฑ์สุขภาพดี'
+                    };
+                } else if (bmi <= 22.9) {
+                    return {
+                        label: 'สมส่วน / น้ำหนักปกติ',
+                        color: '#10b981',
+                        badgeBg: 'bg-emerald-500',
+                        advice: 'น้ำหนักของคุณอยู่ในเกณฑ์ดีเยี่ยม! ควบคุมอาหารและออกกำลังกายสม่ำเสมอเพื่อรักษาสุขภาพที่ดีนี้ไว้'
+                    };
+                } else if (bmi <= 24.9) {
+                    return {
+                        label: 'ท้วม / น้ำหนักเกิน (เริ่มอ้วน)',
+                        color: '#f59e0b',
+                        badgeBg: 'bg-amber-500',
+                        advice: 'เริ่มมีความเสี่ยงน้ำหนักเกิน ควบคุมการบริโภคน้ำตาลและไขมัน และเพิ่มกิจกรรมออกกำลังกายอย่างน้อย 150 นาที/สัปดาห์'
+                    };
+                } else if (bmi <= 29.9) {
+                    return {
+                        label: 'อ้วนระดับ 1',
+                        color: '#f97316',
+                        badgeBg: 'bg-orange-500',
+                        advice: 'อยู่ในภาวะอ้วนระดับ 1 มีความเสี่ยงโรคความดันและเบาหวาน ควรปรับเปลี่ยนโภชนาการและออกกำลังกายอย่างจริงจัง'
+                    };
+                } else {
+                    return {
+                        label: 'อ้วนระดับ 2 (อ้วนมาก)',
+                        color: '#ef4444',
+                        badgeBg: 'bg-red-500',
+                        advice: 'อยู่ในภาวะอ้วนระดับอันตราย ควรปรึกษาแพทย์หรือผู้เชี่ยวชาญเพื่อวางแผนลดน้ำหนักอย่างปลอดภัย'
+                    };
+                }
+            } else { // WHO Standard
+                if (bmi < 18.5) {
+                    return { label: 'Underweight', color: '#3b82f6', badgeBg: 'bg-blue-500', advice: 'ควรเพิ่มน้ำหนักเพื่อสร้างภูมิคุ้มกันร่างกาย' };
+                } else if (bmi <= 24.9) {
+                    return { label: 'Normal weight', color: '#10b981', badgeBg: 'bg-emerald-500', advice: 'สุขภาพดี สภาพร่างกายเหมาะสม' };
+                } else if (bmi <= 29.9) {
+                    return { label: 'Overweight', color: '#f59e0b', badgeBg: 'bg-amber-500', advice: 'ควรเริ่มดูแลและคุมอาหาร' };
+                } else {
+                    return { label: 'Obese', color: '#ef4444', badgeBg: 'bg-red-500', advice: 'เสี่ยงภาวะแทรกซ้อน ควรพบแพทย์' };
+                }
+            }
+        }
+
+        // Display Result in Card
+        function displayResult(res) {
+            document.getElementById('calc-empty-state').classList.add('hidden');
+            document.getElementById('calc-result-box').classList.remove('hidden');
+
+            document.getElementById('res-bmi-val').innerText = res.bmi;
+            document.getElementById('res-bmi-val').style.color = res.color;
+            
+            const badge = document.getElementById('res-category-badge');
+            badge.innerText = res.category;
+            badge.className = `px-3 py-1 rounded-full text-sm font-bold text-white inline-block ${res.badgeBg}`;
+
+            document.getElementById('res-name-val').innerText = res.name;
+            document.getElementById('res-ideal-weight').innerText = res.idealWeight;
+            document.getElementById('res-water-intake').innerText = res.waterLiters;
+            document.getElementById('res-bmr-val').innerText = res.bmr;
+            document.getElementById('res-tdee-val').innerText = res.tdee;
+            document.getElementById('res-advice-text').querySelector('span').innerText = res.advice;
+
+            // Move Gauge Pin Percentage Calculation
+            let percent = ((res.bmi - 15) / (35 - 15)) * 100;
+            percent = Math.max(2, Math.min(98, percent));
+            document.getElementById('bmi-marker-pin').style.left = `${percent}%`;
+
+            // Auto add to history array
+            addHistoryRecord(res);
+        }
+
+        // History Data Management
+        function addHistoryRecord(item) {
+            const existingIndex = historyData.findIndex(h => h.id === item.id);
+            if (existingIndex > -1) {
+                historyData[existingIndex] = item;
+            } else {
+                historyData.unshift(item);
+            }
+            saveHistoryToLocalStorage();
+            renderHistoryTable();
+        }
+
+        function saveHistoryToLocalStorage() {
+            localStorage.setItem('bmi_history_logs', JSON.stringify(historyData));
+            document.getElementById('history-count').innerText = historyData.length;
+        }
+
+        function renderHistoryTable() {
+            const tbody = document.getElementById('history-table-body');
+            const empty = document.getElementById('history-empty');
+
+            if (historyData.length === 0) {
+                tbody.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            empty.classList.add('hidden');
+            tbody.innerHTML = historyData.map((item, index) => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-4 py-3 font-semibold text-slate-400">${historyData.length - index}</td>
+                    <td class="px-4 py-3 text-slate-500 whitespace-nowrap">${item.timestamp}</td>
+                    <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(item.name)}</td>
+                    <td class="px-4 py-3">${item.height} ซม. / ${item.weight} กก.</td>
+                    <td class="px-4 py-3 font-bold text-emerald-600">${item.bmi}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold text-white ${item.badgeBg}">
+                            ${item.category}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function clearHistory() {
+            if (historyData.length === 0) return;
+            historyData = [];
+            saveHistoryToLocalStorage();
+            renderHistoryTable();
+            showToast('ล้างประวัติเรียบร้อยแล้ว', 'info');
+        }
+
+        // Export History to CSV
+        function exportHistoryCSV() {
+            if (historyData.length === 0) {
+                showToast('ไม่มีข้อมูลประวัติสำหรับส่งออก', 'error');
+                return;
+            }
+
+            let csvContent = "\uFEFFวันที่-เวลา,ชื่อ-นามสกุล,เพศ,อายุ,ส่วนสูง,น้ำหนัก,ค่า BMI,ผลการประเมิน\n";
+            historyData.forEach(row => {
+                csvContent += `"${row.timestamp}","${row.name}","${row.gender}","${row.age}","${row.height}","${row.weight}","${row.bmi}","${row.category}"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `BMI_Report_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Reset Calculator Form
+        function resetForm() {
+            document.getElementById('bmi-form').reset();
+            currentBmiResult = null;
+            document.getElementById('calc-empty-state').classList.remove('hidden');
+            document.getElementById('calc-result-box').classList.add('hidden');
+        }
+
+        // Toast Notification System
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgClass = 'bg-slate-800 text-white';
+            let icon = 'fa-circle-info';
+
+            if (type === 'success') {
+                bgClass = 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20';
+                icon = 'fa-circle-check';
+            } else if (type === 'error') {
+                bgClass = 'bg-rose-600 text-white shadow-lg shadow-rose-600/20';
+                icon = 'fa-circle-exclamation';
+            }
+
+            toast.className = `p-3.5 rounded-xl text-xs font-semibold flex items-center gap-3 transition-all transform translate-y-2 opacity-0 duration-300 pointer-events-auto ${bgClass}`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-base"></i> <span class="flex-1">${message}</span>`;
+
+            container.appendChild(toast);
+
+            // Animate In
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            // Remove After 3 seconds
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Helper to prevent XSS in table
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
+        }
+    </script>
 </body>
 </html>
