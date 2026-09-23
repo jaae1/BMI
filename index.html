@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>คำนวณค่า BMI</title>
+  <style>
+    body {
+      font-family: 'Sarabun', sans-serif, Arial;
+      background-color: #f4f7f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 400px;
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #666;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #result-box {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      background-color: #e8f5e9;
+      display: none;
+      text-align: center;
+    }
+    #result-box h3 {
+      margin: 0 0 10px 0;
+      color: #2e7d32;
+    }
+    .loading {
+      text-align: center;
+      display: none;
+      margin-top: 15px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>คำนวณค่า BMI</h2>
+    <form id="bmiForm">
+      <div class="form-group">
+        <label for="name">ชื่อผู้ใช้งาน:</label>
+        <input type="text" id="name" required placeholder="ใส่ชื่อของคุณ">
+      </div>
+      <div class="form-group">
+        <label for="weight">น้ำหนัก (กิโลกรัม):</label>
+        <input type="number" step="0.1" id="weight" required placeholder="เช่น 65.5">
+      </div>
+      <div class="form-group">
+        <label for="height">ส่วนสูง (เซนติเมตร):</label>
+        <input type="number" step="0.1" id="height" required placeholder="เช่น 170">
+      </div>
+      <button type="button" onclick="submitForm()">คำนวณและบันทึกข้อมูล</button>
+    </form>
+
+    <div class="loading" id="loading">กำลังบันทึกและคำนวณข้อมูล...</div>
+
+    <div id="result-box">
+      <h3>ผลการคำนวณ</h3>
+      <p><strong>ค่า BMI:</strong> <span id="bmiVal"></span></p>
+      <p><strong>ผลการประเมิน:</strong> <span id="bmiRes"></span></p>
+    </div>
+  </div>
+
+  <script>
+    function submitForm() {
+      var name = document.getElementById('name').value;
+      var weight = document.getElementById('weight').value;
+      var height = document.getElementById('height').value;
+
+      if (!name || !weight || !height) {
+        alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+        return;
+      }
+
+      var formData = {
+        name: name,
+        weight: parseFloat(weight),
+        height: parseFloat(height)
+      };
+
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('result-box').style.display = 'none';
+
+      // เรียกใช้ฟังก์ชัน saveData บน Apps Script (Google Server)
+      google.script.run.withSuccessHandler(onSuccess).saveData(formData);
+    }
+
+    function onSuccess(response) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('bmiVal').innerText = response.bmi;
+      document.getElementById('bmiRes').innerText = response.result;
+      document.getElementById('result-box').style.display = 'block';
+      
+      // ล้างข้อมูลในฟอร์ม
+      document.getElementById('bmiForm').reset();
+    }
+  </script>
+
+</body>
+</html>
